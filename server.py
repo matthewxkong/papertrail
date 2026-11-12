@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import sqlite3
 import argparse
 import time
@@ -240,11 +241,15 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.dumps(data).encode()
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(payload)))
         self.send_header('Cache-Control', 'no-store')
         if cookie:
             self.send_header('Set-Cookie', cookie)
         self.end_headers()
         self.wfile.write(payload)
+        self.wfile.flush()
+        if self.close_connection:
+            self.connection.shutdown(socket.SHUT_WR)
 
     def actor(self):
         cookies = dict(x.strip().split('=', 1) for x in self.headers.get('Cookie', '').split(';') if '=' in x)

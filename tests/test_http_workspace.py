@@ -17,6 +17,24 @@ class QuietHandler(Handler):
 
 
 class HTTPWorkspaceTests(unittest.TestCase):
+    def test_json_responses_declare_their_encoded_body_length(self):
+        cases = [('GET', '/api/health', None, {}, 200),
+                 ('POST', '/api/ask', b'{"query":"launch"}',
+                  {'Host': 'attacker.example', 'Content-Type': 'application/json'}, 403),
+                 ('POST', '/api/ask', b'{"query":"launch"}', {'Content-Type': 'text/plain'}, 400)]
+        for method, route, body, headers, status in cases:
+            with self.subTest(status=status):
+                connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+                try:
+                    connection.request(method, route, body, headers)
+                    response = connection.getresponse()
+                    raw = response.read()
+                    self.assertEqual(response.status, status)
+                    self.assertEqual(response.getheader('Content-Length'), str(len(raw)))
+                    self.assertIsInstance(json.loads(raw), dict)
+                finally:
+                    connection.close()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.server = HTTPServer(('127.0.0.1', 0), QuietHandler)
