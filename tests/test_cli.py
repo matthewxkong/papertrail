@@ -38,6 +38,34 @@ class CLITests(unittest.TestCase):
             query = json.loads(self.run_cli(database, 'query', 'field equipment').stdout)
             self.assertEqual(query['total'], 0)
 
+    def test_query_pages_are_stable_scoped_and_do_not_change_database(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / 'notes.sqlite3'
+            store = Store(database)
+            for index in range(4):
+                store.mutate('alex', 'save', {'title': f'Paginationmarker {index}',
+                             'body': 'Paginationmarker evidence.', 'visibility': 'private'})
+            store.mutate('sam', 'save', {'title': 'Paginationmarker hidden',
+                         'body': 'Paginationmarker private.', 'visibility': 'private'})
+            store.db.close()
+            before = database.read_bytes()
+            pages = []
+            for offset in (0, 2):
+                result = self.run_cli(database, 'query', 'Paginationmarker', '--limit', '2',
+                                      '--offset', str(offset))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                page = json.loads(result.stdout)
+                self.assertEqual((page['total'], page['offset']), (4, offset))
+                pages.extend(source['id'] for source in page['sources'])
+            self.assertEqual(len(pages), 4)
+            self.assertEqual(len(set(pages)), 4)
+            for offset in ('-1', '100001'):
+                invalid = self.run_cli(database, 'query', 'Paginationmarker', '--offset', offset)
+                self.assertEqual(invalid.returncode, 2)
+                self.assertEqual(invalid.stdout, '')
+                self.assertIn('Offset must be', invalid.stderr)
+            self.assertEqual(database.read_bytes(), before)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -23,6 +23,17 @@ python -m unittest discover -s tests -v
 
 No package installation, accounts, external assets, or network access is needed for the default experience. Sample data is inserted once, not recreated after deletion.
 
+## Read-only CLI searches
+
+After creating a local database with the application, search it without starting the server:
+
+```sh
+python cli.py --db papertrail.sqlite3 --actor alex query "project notes" --limit 10 --offset 0
+python cli.py --db papertrail.sqlite3 --actor alex query "project notes" --limit 10 --offset 10
+```
+
+Offsets are zero-based (0–100000); limits are 1–50. The JSON response includes `total`, `offset`, and `limit`. Each page applies the selected demo persona's access rules before ranking and pagination. These commands open the existing database read-only and do not call a model. Invalid bounds or missing databases exit with code 2.
+
 ## How it works
 
 - The demo persona selector creates an opaque in-memory session cookie. The server resolves the persona and workspace; retrieval never trusts a client-supplied owner or workspace.
