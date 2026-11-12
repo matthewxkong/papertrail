@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import sqlite3
 import argparse
 import time
@@ -240,11 +241,33 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.dumps(data).encode()
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(payload)))
         self.send_header('Cache-Control', 'no-store')
         if cookie:
             self.send_header('Set-Cookie', cookie)
         self.end_headers()
         self.wfile.write(payload)
+        self.wfile.flush()
+        if self.close_connection:
+            self.connection.shutdown(socket.SHUT_WR)
+            # Drain bounded incoming bytes so unread POST data cannot reset the reply.
+            deadline = time.monotonic() + 0.2
+            remaining = 100000
+            previous_timeout = self.connection.gettimeout()
+            try:
+                while remaining:
+                    timeout = deadline - time.monotonic()
+                    if timeout <= 0:
+                        break
+                    self.connection.settimeout(timeout)
+                    chunk = self.connection.recv(min(8192, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+            except OSError:
+                pass
+            finally:
+                self.connection.settimeout(previous_timeout)
 
     def actor(self):
         cookies = dict(x.strip().split('=', 1) for x in self.headers.get('Cookie', '').split(';') if '=' in x)

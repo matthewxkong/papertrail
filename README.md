@@ -48,6 +48,8 @@ The response must contain bounded answer text, an explicit non-abstention flag, 
 
 ## Actual limits
 
+JSON API responses declare their encoded `Content-Length`, including early 400/403 rejections. Closing connections flush and half-close the response before socket teardown. Incoming cleanup is capped at 100,000 bytes and 200 ms, so rejection does not wait indefinitely for a missing request body.
+
 This is an intentionally local **demo identity system, not production authentication or security**. Anyone using the local app can choose any demo persona; the default is Alex. Do not expose the server beyond loopback or use it for sensitive material. Same-origin POST checking and SameSite cookies are defense in depth, not an authentication boundary. There is no CSRF token, password login, encryption, multi-user deployment hardening, rate limiting, or session expiry. A single request worker serializes database operations and approvals. Large workloads will block other requests. No user-supplied paths or URLs are fetched; pasted content is rendered through DOM `textContent`. The optional Ollama endpoint is server configuration, never imported document data.
 
 The sandbox task database has no calendar, email, filesystem, or external task effects. Audit timestamps are actual SQLite UTC timestamps; there are no invented historical activity records. Document version history is not retained after mutation. This project makes no accuracy, legal, compliance, or production readiness claims.
