@@ -17,6 +17,19 @@ class QuietHandler(Handler):
 
 
 class HTTPWorkspaceTests(unittest.TestCase):
+    def test_rejected_host_does_not_wait_for_an_unsent_request_body(self):
+        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+        try:
+            connection.putrequest('POST', '/api/ask', skip_host=True)
+            connection.putheader('Host', 'attacker.example')
+            connection.putheader('Content-Length', '100000')
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 403)
+            self.assertIn('error', json.loads(response.read()))
+        finally:
+            connection.close()
+
     def test_json_responses_declare_their_encoded_body_length(self):
         cases = [('GET', '/api/health', None, {}, 200),
                  ('POST', '/api/ask', b'{"query":"launch"}',

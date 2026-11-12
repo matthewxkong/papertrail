@@ -250,6 +250,24 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
         if self.close_connection:
             self.connection.shutdown(socket.SHUT_WR)
+            # Drain bounded incoming bytes so unread POST data cannot reset the reply.
+            deadline = time.monotonic() + 0.2
+            remaining = 100000
+            previous_timeout = self.connection.gettimeout()
+            try:
+                while remaining:
+                    timeout = deadline - time.monotonic()
+                    if timeout <= 0:
+                        break
+                    self.connection.settimeout(timeout)
+                    chunk = self.connection.recv(min(8192, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+            except OSError:
+                pass
+            finally:
+                self.connection.settimeout(previous_timeout)
 
     def actor(self):
         cookies = dict(x.strip().split('=', 1) for x in self.headers.get('Cookie', '').split(';') if '=' in x)
