@@ -12,6 +12,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CLITests(unittest.TestCase):
+    def test_offline_tasks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / 'tasks.db'
+            store = Store(database)
+            expected = store.task_list('alex', {'status': 'open', 'limit': 1})
+            store.db.close()
+            result = self.run_cli(database, 'tasks', '--status', 'open', '--limit', '1')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), expected)
+
     def run_cli(self, database, *args):
         return subprocess.run([sys.executable, 'cli.py', '--db', str(database), '--actor', 'alex', *args],
                               cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
